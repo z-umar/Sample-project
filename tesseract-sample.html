@@ -1,29 +1,79 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tesseract.js OCR Sample</title>
+// ... existing code ...
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 2em; }
     #output { margin-top: 1em; white-space: pre-wrap; background: #f4f4f4; padding: 1em; border-radius: 5px; }
+    #preview, #preprocessed { max-width: 300px; margin-top: 1em; display: block; }
   </style>
-</head>
-<body>
-  <h1>Tesseract.js OCR Demo</h1>
+// ... existing code ...
   <input type="file" id="imageInput" accept="image/*">
+  <button id="preprocessBtn">Preprocess Image</button>
   <button id="recognizeBtn">Recognize Text</button>
+  <div>
+    <img id="preview" alt="Original Preview" style="display:none;"/>
+    <canvas id="preprocessed" style="display:none;"></canvas>
+  </div>
   <div id="output">Recognized text will appear here.</div>
-
+// ... existing code ...
   <script>
+    let cvReady = false;
+    function onOpenCvReady() {
+      cvReady = true;
+    }
+
     const imageInput = document.getElementById('imageInput');
+    const preprocessBtn = document.getElementById('preprocessBtn');
     const recognizeBtn = document.getElementById('recognizeBtn');
     const output = document.getElementById('output');
+    const preview = document.getElementById('preview');
+    const preprocessed = document.getElementById('preprocessed');
     let imageFile = null;
+    let preprocessedBlob = null;
 
     imageInput.addEventListener('change', (e) => {
       imageFile = e.target.files[0];
+      if (imageFile) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          preview.src = evt.target.result;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(imageFile);
+      }
+    });
+
+    preprocessBtn.addEventListener('click', () => {
+      if (!imageFile) {
+        output.textContent = 'Please select an image file.';
+        return;
+      }
+      if (!cvReady) {
+        output.textContent = 'OpenCV.js is not loaded yet. Please wait.';
+        return;
+      }
+      output.textContent = 'Preprocessing...';
+      const img = new Image();
+      img.onload = function() {
+        preprocessed.width = img.width;
+        preprocessed.height = img.height;
+        preprocessed.style.display = 'block';
+        const ctx = preprocessed.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        let src = cv.imread(preprocessed);
+        let dst = new cv.Mat();
+        cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+        cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+        cv.imshow(preprocessed, dst);
+        // Convert canvas to blob for Tesseract
+        preprocessed.toBlob(blob => {
+          preprocessedBlob = blob;
+          output.textContent = 'Preprocessing complete. You can now recognize text.';
+        }, 'image/png');
+        src.delete();
+        dst.delete();
+      };
+      img.src = preview.src;
     });
 
     recognizeBtn.addEventListener('click', () => {
@@ -31,9 +81,10 @@
         output.textContent = 'Please select an image file.';
         return;
       }
+      let ocrInput = preprocessedBlob || imageFile;
       output.textContent = 'Recognizing...';
       Tesseract.recognize(
-        imageFile,
+        ocrInput,
         'eng',
         {
           logger: m => {
@@ -49,5 +100,3 @@
       });
     });
   </script>
-</body>
-</html>
