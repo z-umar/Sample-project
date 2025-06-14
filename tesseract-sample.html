@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tesseract.js OCR Sample</title>
+  <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    #output { margin-top: 1em; white-space: pre-wrap; background: #f4f4f4; padding: 1em; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Tesseract.js OCR Demo</h1>
+  <input type="file" id="imageInput" accept="image/*">
+  <button id="recognizeBtn">Recognize Text</button>
+  <div id="output">Recognized text will appear here.</div>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const recognizeBtn = document.getElementById('recognizeBtn');
+    const output = document.getElementById('output');
+    let imageFile = null;
+
+    imageInput.addEventListener('change', (e) => {
+      imageFile = e.target.files[0];
+    });
+
+    recognizeBtn.addEventListener('click', () => {
+      if (!imageFile) {
+        output.textContent = 'Please select an image file.';
+        return;
+      }
+      output.textContent = 'Recognizing...';
+      Tesseract.recognize(
+        imageFile,
+        'eng',
+        {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              output.textContent = `Recognizing... ${Math.round(m.progress * 100)}%`;
+            }
+          }
+        }
+      ).then(({ data: { text } }) => {
+        output.textContent = text || 'No text recognized.';
+      }).catch(err => {
+        output.textContent = 'Error: ' + err.message;
+      });
+    });
+  </script>
+</body>
+</html>
